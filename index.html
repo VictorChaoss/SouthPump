@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>South Pump+</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Balsamiq+Sans:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="gate-page">
+
+    <!-- Single unified gate overlay -->
+    <div id="gate" class="gate">
+        <!-- Panel 1: Splash -->
+        <div id="splash-panel" class="gate-panel">
+            <div class="splash-logo-wrap">
+                <img id="splash-logo" src="South Pump Background Removed.png" alt="South Pump">
+                <div class="splash-glow"></div>
+            </div>
+        </div>
+
+        <!-- Panel 2: Profile selection -->
+        <div id="profile-panel" class="gate-panel" style="opacity:0; pointer-events:none;">
+            <div class="intro-logo">
+                <img src="South Pump Background Removed.png" alt="South Pump Logo">
+            </div>
+            <h2 class="intro-title">Who's pumping?</h2>
+            <div class="profile-grid">
+                <div class="profile-item" data-profile="Alon" data-avatar="Characters/Alon.jpeg">
+                    <img src="Characters/Alon.jpeg" alt="Alon">
+                    <span>Alon</span>
+                </div>
+                <div class="profile-item" data-profile="Jeff" data-avatar="Characters/Jeff.jpeg">
+                    <img src="Characters/Jeff.jpeg" alt="Jeff">
+                    <span>Jeff</span>
+                </div>
+                <div class="profile-item" data-profile="Floyd" data-avatar="Characters/George Floyd.jpeg">
+                    <img src="Characters/George Floyd.jpeg" alt="George Floyd">
+                    <span>Floyd</span>
+                </div>
+                <div class="profile-item" data-profile="Mitch" data-avatar="Characters/Mitch.jpeg">
+                    <img src="Characters/Mitch.jpeg" alt="Mitch">
+                    <span>Mitch</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="gate.js"></script>
+</body>
+</html>

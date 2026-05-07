@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>South Pump+ | PFP Lab</title>
+    <meta name="description" content="Generate your own South Park-style construction paper degen. Your character, your vibe.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Balsamiq+Sans:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="streaming-platform">
+
+    <header class="streaming-header scrolled" id="main-header">
+        <div class="header-left">
+            <a href="plus.html" class="hub-logo">
+                <img src="South Pump Background Removed.png" alt="South Pump">
+                <span class="plus-badge">+</span>
+            </a>
+                        <nav class="streaming-nav">
+                <a href="plus.html">Home</a>
+                <a href="icons.html">Icons</a>
+                <a href="store.html">Store</a>
+                <a href="episodes.html">Episodes</a>
+                <a href="pfplab.html" class="nav-active">PFP Lab</a>
+                <a href="howtobuy.html">How To Buy</a>
+                <a href="about.html">About</a>
+            </nav>
+        </div>
+        <div class="header-right">
+            <div class="profile-icon" id="nav-profile">
+                <img id="nav-avatar" src="Characters/Alon.jpeg" alt="Profile">
+                <span id="nav-name">Alon</span>
+            </div>
+            <button class="btn-connect-dark" onclick="sessionStorage.clear(); window.location.href='index.html'">Switch Profile</button>
+        </div>
+    </header>
+
+    <section class="page-hero">
+        <div class="page-hero-content">
+            <p class="page-hero-label">&#9881; AI POWERED</p>
+            <h1>PFP LAB</h1>
+            <p class="page-hero-sub">Generate your own South Park-style construction paper degen using AI. Your character. Your vibe. Your PFP.</p>
+        </div>
+    </section>
+
+    <section class="pfp-lab-section" style="padding-top: 2rem;">
+        <div class="pfp-lab-inner">
+            <div class="pfp-lab-info">
+                <h3>CREATE YOUR<br><span class="pfp-highlight">ALTER-EGO</span></h3>
+                <p style="color:#888; margin-bottom: 2rem; line-height:1.6;">Describe your character and our AI will generate a South Park-style construction paper cutout version of them. Use it as your profile pic, share it on X, rep the pump.</p>
+                <div class="api-settings">
+                    <label for="api-key">OpenAI API Key</label>
+                    <input type="password" id="api-key" placeholder="sk-...">
+                    <small>Not stored. Local session only. Get one at <a href="https://platform.openai.com" target="_blank" style="color: var(--red);">platform.openai.com</a></small>
+                </div>
+                <div class="pfp-tips">
+                    <p class="pfp-tips-title">&#128161; Prompt Tips</p>
+                    <ul>
+                        <li>Describe clothing, accessories, and expression</li>
+                        <li>Add a setting or prop (e.g. "holding a green candle")</li>
+                        <li>Name a real-world character for inspiration</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="pfp-lab-interface">
+                <div class="pfp-frame" id="image-frame">
+                    <div class="pfp-placeholder">YOUR CHARACTER HERE</div>
+                    <div class="loader" id="loader" style="display:none;"></div>
+                </div>
+                <div class="pfp-controls">
+                    <textarea id="prompt-input" placeholder="e.g. A guy in a red beanie holding a green candle, looking smug..."></textarea>
+                    <button id="generate-btn" class="btn-mint">&#9733; MINT PFP</button>
+                    <div id="download-wrap" style="display:none; margin-top:0.8rem;">
+                        <a id="download-btn" class="btn-connect-dark" style="display:block; text-align:center; text-decoration:none; padding:0.7rem;">&#8681; Download PFP</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="hub-footer">
+        <div class="footer-logo">
+            <img src="South Pump Background Removed.png" alt="South Pump">
+            <span class="plus-badge">+</span>
+        </div>
+        <p class="footer-disclaimer">$SOUTHPUMP is a parody memecoin for entertainment purposes only.</p>
+    </footer>
+
+    <script src="hub.js"></script>
+    <script>
+        // Extra: show download link after generation
+        const origOnload = window.onGenerated;
+        document.addEventListener('pfpGenerated', (e) => {
+            const wrap = document.getElementById('download-wrap');
+            const link = document.getElementById('download-btn');
+            link.href = e.detail.url;
+            link.download = 'south-pump-pfp.png';
+            wrap.style.display = 'block';
+        });
+    </script>
+</body>
+</html>
