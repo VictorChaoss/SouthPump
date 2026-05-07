@@ -1592,3 +1592,34 @@ body.streaming-platform {
     text-shadow: 4px 4px 0 #000;
     margin-bottom: 1.2rem;
 }
+
+/* =========================================
+   PLUSHIE CARD — transparent bg versions
+   ========================================= */
+
+.plushie-img-wrap {
+    background: radial-gradient(ellipse at 50% 80%, #1c1c1c 0%, #0a0a0a 100%) !important;
+    height: 320px;
+    overflow: hidden;
+    position: relative;
+}
+
+.plushie-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center bottom;
+    padding: 1rem 1.5rem 0;
+    transition: transform 0.4s ease;
+}
+
+.plushie-card:hover .plushie-img-wrap img {
+    transform: scale(1.06) translateY(-4px);
+}
+
+.plushie-locked {
+    background: #0a0a0a !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
