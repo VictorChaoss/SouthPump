@@ -1592,30 +1592,3 @@ body.streaming-platform {
     text-shadow: 4px 4px 0 #000;
     margin-bottom: 1.2rem;
 }
-
-/* =========================================
-   PLUSHIE CARD — consistent product bg
-   ========================================= */
-
-.plushie-img-wrap {
-    background: #f2f0ec !important;
-    height: 320px;
-    overflow: hidden;
-    position: relative;
-}
-
-.plushie-img-wrap img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    object-position: center;
-    padding: 1.2rem;
-    transition: transform 0.4s ease;
-}
-
-.plushie-locked {
-    background: #111 !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
