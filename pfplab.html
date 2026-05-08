@@ -4,11 +4,268 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>South Pump+ | PFP Lab</title>
-    <meta name="description" content="Generate your own South Park-style construction paper degen. Your character, your vibe.">
+    <meta name="description" content="Upload your photo and get a free South Park-style character. Your PFP. Your vibe.">
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Balsamiq+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* ── PFP Lab page-specific styles ── */
+        .pfp-page { padding: 2rem 4% 6rem; max-width: 1100px; margin: 0 auto; }
+
+        .pfp-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.5rem;
+            align-items: start;
+        }
+
+        /* Upload panel */
+        .pfp-upload-panel {}
+
+        .pfp-drop-zone {
+            border: 2px dashed rgba(255,255,255,0.15);
+            border-radius: 16px;
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            position: relative;
+            overflow: hidden;
+            background: rgba(255,255,255,0.02);
+        }
+
+        .pfp-drop-zone:hover,
+        .pfp-drop-zone.drag-over {
+            border-color: var(--red);
+            background: rgba(238,44,44,0.04);
+        }
+
+        .pfp-drop-zone.has-image { border-style: solid; border-color: rgba(255,255,255,0.1); }
+
+        .pfp-drop-zone img.preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 14px;
+        }
+
+        .pfp-drop-hint {
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .pfp-drop-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.4; }
+        .pfp-drop-text { color: #666; font-size: 0.95rem; line-height: 1.5; }
+        .pfp-drop-text strong { color: #aaa; display: block; font-size: 1.1rem; margin-bottom: 0.3rem; }
+
+        .pfp-change-btn {
+            position: absolute;
+            bottom: 1rem; right: 1rem;
+            background: rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            border-radius: 6px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: none;
+            transition: background 0.2s;
+        }
+        .pfp-change-btn:hover { background: rgba(0,0,0,0.9); }
+        .pfp-drop-zone.has-image .pfp-change-btn { display: block; }
+
+        #file-input { display: none; }
+
+        /* Controls */
+        .pfp-controls-panel { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        .pfp-section-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #555;
+            margin-bottom: 0.5rem;
+        }
+
+        .pfp-extra-input {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: none;
+            min-height: 80px;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        .pfp-extra-input:focus { outline: none; border-color: var(--red); }
+        .pfp-extra-input::placeholder { color: #444; }
+
+        .pfp-info-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+        }
+        .pfp-info-box p { color: #555; font-size: 0.85rem; line-height: 1.5; margin: 0; }
+
+        /* Generate button */
+        .btn-generate {
+            width: 100%;
+            background: var(--red);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 1rem;
+            font-family: 'Londrina Solid', sans-serif;
+            font-size: 1.4rem;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s, opacity 0.2s;
+        }
+        .btn-generate:hover:not(:disabled) { background: #cc2020; transform: translateY(-2px); }
+        .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        /* Loading panel */
+        .pfp-loading {
+            display: none;
+            aspect-ratio: 1;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+        .pfp-loading.active { display: flex; }
+
+        .pfp-spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(255,255,255,0.08);
+            border-top-color: var(--red);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            margin-bottom: 1.5rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .pfp-loading-step {
+            font-family: 'Londrina Solid', sans-serif;
+            font-size: 1.5rem;
+            color: #fff;
+            margin-bottom: 0.4rem;
+            min-height: 2rem;
+        }
+        .pfp-loading-sub { color: #555; font-size: 0.85rem; }
+
+        /* Result panel */
+        .pfp-result {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .pfp-result.active { display: flex; }
+
+        .pfp-result-img {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 16px;
+            object-fit: cover;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .pfp-result-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+
+        .btn-dl {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #fff;
+            border-radius: 8px;
+            padding: 0.8rem;
+            font-family: 'Londrina Solid', sans-serif;
+            font-size: 1.1rem;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.2s, border-color 0.2s;
+            display: block;
+        }
+        .btn-dl:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+
+        .btn-tweet {
+            background: #000;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #fff;
+            border-radius: 8px;
+            padding: 0.8rem;
+            font-family: 'Londrina Solid', sans-serif;
+            font-size: 1.1rem;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn-tweet:hover { background: #111; }
+
+        .btn-mint-again {
+            width: 100%;
+            background: transparent;
+            border: 1px solid rgba(238,44,44,0.4);
+            color: var(--red);
+            border-radius: 8px;
+            padding: 0.7rem;
+            font-family: 'Londrina Solid', sans-serif;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .btn-mint-again:hover { border-color: var(--red); background: rgba(238,44,44,0.06); }
+
+        /* Error */
+        .pfp-error-msg {
+            background: rgba(238,44,44,0.08);
+            border: 1px solid rgba(238,44,44,0.2);
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            color: #f87;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .pfp-error-msg.active { display: block; }
+
+        /* Cooldown */
+        .pfp-cooldown {
+            color: #555;
+            font-size: 0.85rem;
+            text-align: center;
+            display: none;
+        }
+        .pfp-cooldown.active { display: block; }
+        .pfp-cooldown span { color: var(--red); font-weight: 700; }
+
+        @media (max-width: 700px) {
+            .pfp-split { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
 <body class="streaming-platform">
 
@@ -18,7 +275,7 @@
                 <img src="South Pump Background Removed.png" alt="South Pump">
                 <span class="plus-badge">+</span>
             </a>
-                        <nav class="streaming-nav">
+            <nav class="streaming-nav">
                 <a href="plus.html">Home</a>
                 <a href="icons.html">Icons</a>
                 <a href="store.html">Store</a>
@@ -29,56 +286,96 @@
             </nav>
         </div>
         <div class="header-right">
-            <div class="profile-icon" id="nav-profile">
-                <img id="nav-avatar" src="Characters/Alon.jpeg" alt="Profile">
-                <span id="nav-name">Alon</span>
-            </div>
+            <div class="profile-icon"><img id="nav-avatar" src="Characters/Alon.jpeg" alt="Profile"><span id="nav-name">Alon</span></div>
             <button class="btn-connect-dark" onclick="sessionStorage.clear(); window.location.href='index.html'">Switch Profile</button>
         </div>
     </header>
 
-    <section class="page-hero">
+    <section class="page-hero" style="padding-bottom: 2rem;">
         <div class="page-hero-content">
             <p class="page-hero-label">&#9881; AI POWERED</p>
             <h1>PFP LAB</h1>
-            <p class="page-hero-sub">Generate your own South Park-style construction paper degen using AI. Your character. Your vibe. Your PFP.</p>
+            <p class="page-hero-sub">Upload your photo. Get a South Park degen. Rep the pump.</p>
         </div>
     </section>
 
-    <section class="pfp-lab-section" style="padding-top: 2rem;">
-        <div class="pfp-lab-inner">
-            <div class="pfp-lab-info">
-                <h3>CREATE YOUR<br><span class="pfp-highlight">ALTER-EGO</span></h3>
-                <p style="color:#888; margin-bottom: 2rem; line-height:1.6;">Describe your character and our AI will generate a South Park-style construction paper cutout version of them. Use it as your profile pic, share it on X, rep the pump.</p>
-                <div class="api-settings">
-                    <label for="api-key">OpenAI API Key</label>
-                    <input type="password" id="api-key" placeholder="sk-...">
-                    <small>Not stored. Local session only. Get one at <a href="https://platform.openai.com" target="_blank" style="color: var(--red);">platform.openai.com</a></small>
+    <div class="pfp-page">
+        <div class="pfp-split">
+
+            <!-- LEFT: Upload + Result -->
+            <div>
+                <!-- Upload zone -->
+                <div class="pfp-drop-zone" id="drop-zone">
+                    <div class="pfp-drop-hint" id="drop-hint">
+                        <div class="pfp-drop-icon">📸</div>
+                        <div class="pfp-drop-text">
+                            <strong>Drop your photo here</strong>
+                            or click to upload
+                        </div>
+                    </div>
+                    <img class="preview" id="photo-preview" src="" alt="Your photo" style="display:none;">
+                    <button class="pfp-change-btn" id="change-btn" onclick="triggerUpload(event)">Change Photo</button>
                 </div>
-                <div class="pfp-tips">
-                    <p class="pfp-tips-title">&#128161; Prompt Tips</p>
-                    <ul>
-                        <li>Describe clothing, accessories, and expression</li>
-                        <li>Add a setting or prop (e.g. "holding a green candle")</li>
-                        <li>Name a real-world character for inspiration</li>
-                    </ul>
+                <input type="file" id="file-input" accept="image/*">
+
+                <!-- Loading state (replaces drop zone during generation) -->
+                <div class="pfp-loading" id="pfp-loading">
+                    <div class="pfp-spinner"></div>
+                    <div class="pfp-loading-step" id="loading-step">Analysing your face...</div>
+                    <div class="pfp-loading-sub">This takes about 20 seconds</div>
+                </div>
+
+                <!-- Result -->
+                <div class="pfp-result" id="pfp-result">
+                    <img class="pfp-result-img" id="result-img" src="" alt="Your South Pump PFP">
+                    <div class="pfp-result-actions">
+                        <a class="btn-dl" id="download-btn" download="south-pump-pfp.png">⬇ Download</a>
+                        <a class="btn-tweet" id="tweet-btn" href="#" target="_blank">
+                            <span style="font-size:1.1rem;">𝕏</span> Share
+                        </a>
+                    </div>
+                    <button class="btn-mint-again" id="mint-again-btn">↩ Mint Another</button>
                 </div>
             </div>
-            <div class="pfp-lab-interface">
-                <div class="pfp-frame" id="image-frame">
-                    <div class="pfp-placeholder">YOUR CHARACTER HERE</div>
-                    <div class="loader" id="loader" style="display:none;"></div>
-                </div>
-                <div class="pfp-controls">
-                    <textarea id="prompt-input" placeholder="e.g. A guy in a red beanie holding a green candle, looking smug..."></textarea>
-                    <button id="generate-btn" class="btn-mint">&#9733; MINT PFP</button>
-                    <div id="download-wrap" style="display:none; margin-top:0.8rem;">
-                        <a id="download-btn" class="btn-connect-dark" style="display:block; text-align:center; text-decoration:none; padding:0.7rem;">&#8681; Download PFP</a>
+
+            <!-- RIGHT: Controls -->
+            <div class="pfp-controls-panel">
+                <div>
+                    <p class="pfp-section-label">Your Photo</p>
+                    <div class="pfp-info-box">
+                        <p>Upload a clear photo of your face. Works best with a front-facing shot in good lighting. Your photo is never stored.</p>
                     </div>
                 </div>
+
+                <div>
+                    <p class="pfp-section-label">Add anything extra <span style="color:#444;">(optional)</span></p>
+                    <textarea
+                        class="pfp-extra-input"
+                        id="extra-prompt"
+                        placeholder="e.g. holding a green candle, wearing a moon hat, on a rocket..."
+                        maxlength="200"
+                    ></textarea>
+                </div>
+
+                <div class="pfp-error-msg" id="error-msg"></div>
+                <div class="pfp-cooldown" id="cooldown-msg">Wait <span id="cooldown-secs">60</span>s before generating again</div>
+
+                <button class="btn-generate" id="generate-btn" disabled>
+                    ★ MINT YOUR PFP
+                </button>
+
+                <div class="pfp-info-box">
+                    <p>
+                        &#9679; Free for all South Pump holders<br>
+                        &#9679; AI-generated — every result is unique<br>
+                        &#9679; Your photo is not stored or shared<br>
+                        &#9679; Max 5 generations per 10 minutes
+                    </p>
+                </div>
             </div>
+
         </div>
-    </section>
+    </div>
 
     <footer class="hub-footer">
         <div class="footer-logo">
@@ -90,15 +387,242 @@
 
     <script src="hub.js"></script>
     <script>
-        // Extra: show download link after generation
-        const origOnload = window.onGenerated;
-        document.addEventListener('pfpGenerated', (e) => {
-            const wrap = document.getElementById('download-wrap');
-            const link = document.getElementById('download-btn');
-            link.href = e.detail.url;
-            link.download = 'south-pump-pfp.png';
-            wrap.style.display = 'block';
+    (() => {
+        // ── Elements ──────────────────────────────────────────────────────
+        const dropZone     = document.getElementById('drop-zone');
+        const dropHint     = document.getElementById('drop-hint');
+        const fileInput    = document.getElementById('file-input');
+        const photoPreview = document.getElementById('photo-preview');
+        const generateBtn  = document.getElementById('generate-btn');
+        const extraInput   = document.getElementById('extra-prompt');
+        const loadingPanel = document.getElementById('pfp-loading');
+        const loadingStep  = document.getElementById('loading-step');
+        const resultPanel  = document.getElementById('pfp-result');
+        const resultImg    = document.getElementById('result-img');
+        const downloadBtn  = document.getElementById('download-btn');
+        const tweetBtn     = document.getElementById('tweet-btn');
+        const mintAgainBtn = document.getElementById('mint-again-btn');
+        const errorMsg     = document.getElementById('error-msg');
+        const cooldownMsg  = document.getElementById('cooldown-msg');
+        const cooldownSecs = document.getElementById('cooldown-secs');
+
+        let uploadedBase64 = null;
+        let cooldownTimer  = null;
+        const COOLDOWN_MS  = 60_000; // 60s client-side cooldown
+
+        // ── Loading messages ─────────────────────────────────────────────
+        const loadingMessages = [
+            'Analysing your face structure...',
+            'Converting to construction paper...',
+            'Adding that signature South Park look...',
+            'Almost done, degen...',
+            'Just touching up the details...'
+        ];
+        let msgInterval = null;
+
+        function startLoadingMessages() {
+            let i = 0;
+            loadingStep.textContent = loadingMessages[0];
+            msgInterval = setInterval(() => {
+                i = Math.min(i + 1, loadingMessages.length - 1);
+                loadingStep.textContent = loadingMessages[i];
+            }, 4000);
+        }
+
+        function stopLoadingMessages() {
+            clearInterval(msgInterval);
+        }
+
+        // ── Image resize + base64 ─────────────────────────────────────────
+        function resizeAndEncode(file, maxPx = 1024) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const ratio  = Math.min(maxPx / img.width, maxPx / img.height, 1);
+                        const canvas = document.createElement('canvas');
+                        canvas.width  = Math.round(img.width  * ratio);
+                        canvas.height = Math.round(img.height * ratio);
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        // JPEG at 85% quality — good balance of detail vs size
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                        resolve(dataUrl.split(',')[1]); // return base64 only
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ── File handling ─────────────────────────────────────────────────
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                showError('Please upload an image file (JPG, PNG, WEBP).');
+                return;
+            }
+            if (file.size > 15_000_000) {
+                showError('Photo is too large. Please use an image under 15MB.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                photoPreview.src = e.target.result;
+                photoPreview.style.display = 'block';
+                dropHint.style.display = 'none';
+                dropZone.classList.add('has-image');
+            };
+            reader.readAsDataURL(file);
+
+            // Resize and store base64 for API call
+            resizeAndEncode(file).then(b64 => {
+                uploadedBase64 = b64;
+                generateBtn.disabled = false;
+                hideError();
+            }).catch(() => showError('Could not process image. Try a different file.'));
+        }
+
+        dropZone.addEventListener('click', e => {
+            if (e.target === dropZone || e.target === dropHint || dropHint.contains(e.target)) {
+                fileInput.click();
+            }
         });
+
+        fileInput.addEventListener('change', e => {
+            if (e.target.files[0]) handleFile(e.target.files[0]);
+        });
+
+        dropZone.addEventListener('dragover', e => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+        });
+
+        // ── Generate ───────────────────────────────────────────────────────
+        generateBtn.addEventListener('click', async () => {
+            if (!uploadedBase64) { showError('Please upload a photo first.'); return; }
+
+            // Client-side cooldown check
+            const lastGen = parseInt(localStorage.getItem('pfpLastGen') || '0');
+            const since   = Date.now() - lastGen;
+            if (since < COOLDOWN_MS) {
+                startCooldown(Math.ceil((COOLDOWN_MS - since) / 1000));
+                return;
+            }
+
+            // Show loading
+            dropZone.style.display    = 'none';
+            loadingPanel.style.display = 'flex';
+            loadingPanel.classList.add('active');
+            resultPanel.classList.remove('active');
+            generateBtn.disabled = true;
+            hideError();
+            startLoadingMessages();
+
+            try {
+                const res = await fetch('/api/generate-pfp', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        imageBase64: uploadedBase64,
+                        extraPrompt: extraInput.value.trim().slice(0, 200)
+                    })
+                });
+
+                const data = await res.json();
+                stopLoadingMessages();
+
+                if (!res.ok) {
+                    if (res.status === 429) {
+                        const secs = data.retryAfter || 60;
+                        loadingPanel.classList.remove('active');
+                        loadingPanel.style.display = 'none';
+                        dropZone.style.display = '';
+                        startCooldown(secs);
+                        return;
+                    }
+                    throw new Error(data.error || 'Generation failed. Please try again.');
+                }
+
+                // Success — show result
+                localStorage.setItem('pfpLastGen', Date.now().toString());
+                loadingPanel.classList.remove('active');
+                loadingPanel.style.display = 'none';
+
+                resultImg.src = data.url;
+                downloadBtn.href     = data.url;
+                downloadBtn.download = 'south-pump-pfp.png';
+
+                const tweetText = encodeURIComponent('Just minted my South Pump PFP 🚀 $SOUTHPUMP @SouthPumpFun\n\nsouthpump.fun/pfplab.html');
+                tweetBtn.href = `https://twitter.com/intent/tweet?text=${tweetText}`;
+
+                resultPanel.classList.add('active');
+                generateBtn.disabled = false;
+
+            } catch (err) {
+                stopLoadingMessages();
+                loadingPanel.classList.remove('active');
+                loadingPanel.style.display = 'none';
+                dropZone.style.display = '';
+                generateBtn.disabled = false;
+                showError(err.message);
+            }
+        });
+
+        // ── Mint again ─────────────────────────────────────────────────────
+        mintAgainBtn.addEventListener('click', () => {
+            resultPanel.classList.remove('active');
+            dropZone.style.display = '';
+            generateBtn.disabled = !uploadedBase64;
+        });
+
+        // ── Error helpers ──────────────────────────────────────────────────
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add('active');
+        }
+        function hideError() {
+            errorMsg.classList.remove('active');
+        }
+
+        // ── Cooldown timer ─────────────────────────────────────────────────
+        function startCooldown(seconds) {
+            let s = seconds;
+            cooldownSecs.textContent = s;
+            cooldownMsg.classList.add('active');
+            generateBtn.disabled = true;
+
+            clearInterval(cooldownTimer);
+            cooldownTimer = setInterval(() => {
+                s--;
+                cooldownSecs.textContent = s;
+                if (s <= 0) {
+                    clearInterval(cooldownTimer);
+                    cooldownMsg.classList.remove('active');
+                    generateBtn.disabled = !uploadedBase64;
+                }
+            }, 1000);
+        }
+
+        // ── Trigger upload from change button ──────────────────────────────
+        window.triggerUpload = function(e) {
+            e.stopPropagation();
+            fileInput.click();
+        };
+
+    })();
     </script>
+
 </body>
 </html>
