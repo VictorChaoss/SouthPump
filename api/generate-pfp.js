@@ -1,8 +1,9 @@
 // api/generate-pfp.js — South Pump PFP Lab Backend
 // Vercel Serverless Function
 // Env vars required:
-//   OPENROUTER_API_KEY  — vision analysis (GPT-4o)
-//   OPENAI_API_KEY      — image generation (DALL-E 3)
+//   OPENROUTER_API_KEY  — vision analysis (GPT-4o via OpenRouter)
+//
+// Image generation uses Pollinations.ai (free, no key needed)
 
 // ── Simple in-memory rate limiter ──────────────────────────────────────────
 const rateLimitMap = new Map();
@@ -50,9 +51,7 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Image too large. Please use a photo under 4MB.' });
 
     const orKey = process.env.OPENROUTER_API_KEY;
-    const oaKey = process.env.OPENAI_API_KEY;
-
-    if (!orKey || !oaKey)
+    if (!orKey)
         return res.status(500).json({ error: 'API not configured on server.' });
 
     try {
@@ -95,44 +94,30 @@ module.exports = async function handler(req, res) {
         if (!description)
             throw new Error('Could not analyse the image. Please try a clearer photo.');
 
-        // ── Step 2: Generate South Park PFP via OpenAI DALL-E 3 ──────────────
+        // ── Step 2: Generate South Park PFP via Pollinations.ai (FLUX model) ─
         const safeExtra   = extraPrompt.slice(0, 200);
-        const dallePrompt = [
+        const fullPrompt  = [
             'South Park cartoon style character portrait.',
             'Construction paper cutout animation aesthetic.',
             'Flat 2D art, thick black outlines, vibrant primary colors, simple shapes.',
-            `The character: ${description}`,
-            safeExtra ? `Additional detail: ${safeExtra}.` : '',
-            'Centered square portrait, clean white background, no text, no watermarks.',
-            'Authentic South Park art style.'
+            `Character appearance: ${description}`,
+            safeExtra ? safeExtra : '',
+            'Centered square portrait, clean white background, no text.',
+            'Authentic South Park art style, high quality.'
         ].filter(Boolean).join(' ');
 
-        const imageRes = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${oaKey}`,
-                'Content-Type':  'application/json'
-            },
-            body: JSON.stringify({
-                model:           'dall-e-3',
-                prompt:          dallePrompt,
-                n:               1,
-                size:            '1024x1024',
-                quality:         'hd',
-                response_format: 'url'
-            })
-        });
+        // Pollinations.ai — free image gen, no key needed, deterministic by seed
+        const seed      = Math.floor(Math.random() * 999999);
+        const encoded   = encodeURIComponent(fullPrompt);
+        const imageUrl  = `https://image.pollinations.ai/prompt/${encoded}?model=flux&width=1024&height=1024&seed=${seed}&nologo=true&enhance=true`;
 
-        if (!imageRes.ok) {
-            const err = await imageRes.json().catch(() => ({}));
-            throw new Error(err.error?.message || `Image generation failed (${imageRes.status})`);
+        // Verify the URL is reachable (HEAD request)
+        const checkRes = await fetch(imageUrl, { method: 'HEAD' });
+        if (!checkRes.ok) {
+            throw new Error(`Image service unavailable (${checkRes.status}). Please try again.`);
         }
 
-        const imageData = await imageRes.json();
-        const url       = imageData.data?.[0]?.url;
-        if (!url) throw new Error('No image URL returned. Please try again.');
-
-        return res.status(200).json({ url, description });
+        return res.status(200).json({ url: imageUrl, description });
 
     } catch (err) {
         console.error('[PFP Lab]', err.message);
