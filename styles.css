@@ -1594,35 +1594,50 @@ body.streaming-platform {
 }
 
 /* =========================================
-   PLUSHIE CARD — transparent bg versions
+   PLUSHIE CARD — consistent product layout
    ========================================= */
 
 .plushie-img-wrap {
-    background: radial-gradient(ellipse at 50% 90%, #1e1e1e 0%, #0a0a0a 100%) !important;
-    height: 360px;
+    background: #f5f4f0 !important;
+    height: 340px;
     overflow: hidden;
     position: relative;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
 }
 
 .plushie-img-wrap img {
-    width: auto;
-    height: 85%;
-    max-width: 100%;
-    object-fit: contain;
-    object-position: bottom center;
-    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
     transition: transform 0.4s ease;
 }
 
+/* Seated plushies (Jeff, Fat Duval) — landscape images, center them */
+.plushie-card:nth-child(1) .plushie-img-wrap img,
+.plushie-card:nth-child(2) .plushie-img-wrap img {
+    object-position: center center;
+    transform-origin: center center;
+}
+
+/* Alon — standing tall, show from top */
+.plushie-card:nth-child(3) .plushie-img-wrap img {
+    object-position: center top;
+    object-fit: contain;
+    background: #f5f4f0;
+}
+
+/* Floyd — seated square, center */
+.plushie-card:nth-child(4) .plushie-img-wrap img {
+    object-position: center center;
+}
+
 .plushie-card:hover .plushie-img-wrap img {
-    transform: scale(1.06) translateY(-6px);
+    transform: scale(1.05);
 }
 
 .plushie-locked {
-    background: #0a0a0a !important;
+    background: #1a1a1a !important;
+    display: flex;
     align-items: center;
     justify-content: center;
 }
