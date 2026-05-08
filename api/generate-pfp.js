@@ -1,7 +1,6 @@
 // api/generate-pfp.js — South Pump PFP Lab Backend
 // Vercel Serverless Function
 // Env vars required: OPENROUTER_API_KEY
-
 // ── Simple in-memory rate limiter ──────────────────────────────────────────
 const rateLimitMap = new Map();
 const RATE_LIMIT   = 5;           // max requests per window
@@ -24,7 +23,7 @@ function checkRateLimit(ip) {
 }
 
 // ── Serverless handler ──────────────────────────────────────────────────────
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
 
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin',  '*');
