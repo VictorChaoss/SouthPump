@@ -32,6 +32,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // ── Mobile nav overlay ─────────────────────────────────────────
+    const hamburger = document.getElementById('hamburger');
+    if (hamburger) {
+        // Build overlay from existing nav links
+        const navLinks = document.querySelectorAll('.streaming-nav a');
+        const overlay  = document.createElement('div');
+        overlay.className = 'mobile-nav-overlay';
+        overlay.innerHTML = `
+            <button class="mobile-nav-close" id="mobile-nav-close">&#10005;</button>
+            <nav class="mobile-nav-links">
+                ${Array.from(navLinks).map(a =>
+                    `<a href="${a.href}" ${a.classList.contains('nav-active') ? 'class="nav-active"' : ''}>${a.textContent}</a>`
+                ).join('')}
+            </nav>
+            <div class="mobile-nav-footer">
+                <a href="https://twitter.com" target="_blank">𝕏 Twitter</a>
+                <a href="https://t.me" target="_blank">✈ Telegram</a>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        hamburger.addEventListener('click', () => {
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+
+        document.getElementById('mobile-nav-close').addEventListener('click', () => {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) {
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    }
+
     // ── PFP Lab ────────────────────────────────────────────────────
     const generateBtn = document.getElementById('generate-btn');
     const promptInput = document.getElementById('prompt-input');
