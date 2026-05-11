@@ -2,12 +2,12 @@
 // Vercel Serverless Function — maxDuration: 60 (set in vercel.json)
 //
 // Required env var (Vercel Dashboard → Environment Variables):
-//   OPENAI_API_KEY  — must have billing enabled at platform.openai.com/billing
+//   OPENROUTER_API_KEY
 
-// ── In-memory rate limiter (resets on cold start — good enough for serverless) ──
+// ── In-memory rate limiter ───────────────────────────────────────────────────
 const rateLimitMap = new Map();
-const RATE_LIMIT   = 5;                  // requests per window
-const RATE_WINDOW  = 10 * 60 * 1000;    // 10 minutes
+const RATE_LIMIT   = 5;
+const RATE_WINDOW  = 10 * 60 * 1000; // 10 minutes
 
 function checkRateLimit(ip) {
     const now   = Date.now();
@@ -23,10 +23,9 @@ function checkRateLimit(ip) {
     return { allowed: true };
 }
 
-// ── Handler ─────────────────────────────────────────────────────────────────
+// ── Handler ──────────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
 
-    // CORS
     res.setHeader('Access-Control-Allow-Origin',  '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -37,35 +36,31 @@ module.exports = async function handler(req, res) {
     const ip    = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
     const limit = checkRateLimit(ip);
     if (!limit.allowed) {
-        return res.status(429).json({
-            error:      `Rate limit reached. Try again in ${limit.retryAfter} seconds.`,
-            retryAfter: limit.retryAfter
-        });
+        return res.status(429).json({ error: `Rate limit. Try again in ${limit.retryAfter}s.`, retryAfter: limit.retryAfter });
     }
 
-    // Validate
     const { imageBase64, extraPrompt = '' } = req.body || {};
-    if (!imageBase64)
-        return res.status(400).json({ error: 'No image provided.' });
-    if (imageBase64.length > 7_000_000)
-        return res.status(400).json({ error: 'Image too large. Please use a photo under 4MB.' });
+    if (!imageBase64) return res.status(400).json({ error: 'No image provided.' });
+    if (imageBase64.length > 7_000_000) return res.status(400).json({ error: 'Image too large (max 4MB).' });
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey)
-        return res.status(500).json({
-            error: 'OPENAI_API_KEY is not set. Go to Vercel → Settings → Environment Variables.'
-        });
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'OPENROUTER_API_KEY not set in Vercel environment variables.' });
 
-    const authHeader = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+    const orHeaders = {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type':  'application/json',
+        'HTTP-Referer':  'https://southpump.fun',
+        'X-Title':       'South Pump PFP Lab'
+    };
 
     try {
 
-        // ── Step 1: Describe the person with GPT-4o Vision ──────────────────
-        const visionRes = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: authHeader,
+        // ── Step 1: Vision — describe the person (GPT-4o via OpenRouter) ────
+        const visionRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method:  'POST',
+            headers: orHeaders,
             body: JSON.stringify({
-                model: 'gpt-4o',
+                model: 'openai/gpt-4o',
                 messages: [{
                     role: 'user',
                     content: [
@@ -75,7 +70,7 @@ module.exports = async function handler(req, res) {
                         },
                         {
                             type: 'text',
-                            text: `Describe this person's physical appearance for a South Park cartoon artist. Include: hair color and style, face shape, skin tone, body build, notable features, exact clothing and accessories. Concise, max 80 words, no names.`
+                            text: 'Describe this person\'s physical appearance for a South Park cartoon artist. Include hair color/style, face shape, skin tone, build, notable features, clothing and accessories. Max 80 words. No real names.'
                         }
                     ]
                 }],
@@ -83,58 +78,55 @@ module.exports = async function handler(req, res) {
             })
         });
 
-        const visionData  = await visionRes.json();
+        const visionData = await visionRes.json();
+
         if (!visionRes.ok) {
-            const msg = visionData.error?.message || '';
-            if (visionRes.status === 401) throw new Error('Invalid OpenAI API key. Check OPENAI_API_KEY in Vercel.');
-            if (visionRes.status === 429) throw new Error('OpenAI rate limit hit. Wait a moment and try again.');
-            throw new Error(msg || `Vision step failed (${visionRes.status})`);
+            console.error('[Vision]', visionRes.status, JSON.stringify(visionData));
+            const msg = visionData.error?.message || visionData.message || '';
+            throw new Error(`Vision failed (${visionRes.status}): ${msg}`);
         }
 
         const description = visionData.choices?.[0]?.message?.content?.trim();
-        if (!description) throw new Error('Could not read the image. Try a clearer, front-facing photo.');
+        if (!description) throw new Error('Could not read the image. Try a clearer front-facing photo.');
 
-        // ── Step 2: Generate South Park character with DALL-E 3 ─────────────
+        // ── Step 2: Generate — DALL-E 3 via OpenRouter ──────────────────────
         const safeExtra = (extraPrompt || '').slice(0, 200);
         const prompt    = [
             'South Park cartoon style character portrait.',
-            'Construction paper cutout art style.',
-            'Flat 2D, thick black outlines, vibrant primary colors, simple shapes.',
+            'Construction paper cutout art. Flat 2D, thick black outlines, vibrant colors, simple shapes.',
             `Character: ${description}`,
             safeExtra || '',
-            'White background, centered square portrait, no text, no watermarks.'
+            'White background, centered portrait, no text.'
         ].filter(Boolean).join(' ');
 
-        const genRes  = await fetch('https://api.openai.com/v1/images/generations', {
+        const genRes = await fetch('https://openrouter.ai/api/v1/images/generations', {
             method:  'POST',
-            headers: authHeader,
+            headers: orHeaders,
             body: JSON.stringify({
-                model:           'dall-e-3',
+                model:  'openai/dall-e-3',
                 prompt,
-                n:               1,
-                size:            '1024x1024',
-                quality:         'standard',
-                response_format: 'url'
+                n:      1,
+                size:   '1024x1024'
             })
         });
 
         const genData = await genRes.json();
+
+        // If OpenRouter doesn't support image generation for this key/plan,
+        // return a clear error so we can action it
         if (!genRes.ok) {
-            const msg = genData.error?.message || '';
-            if (genRes.status === 401) throw new Error('Invalid OpenAI API key.');
-            if (genRes.status === 403) throw new Error('OpenAI billing not enabled. Visit platform.openai.com/billing to add credits.');
-            if (genRes.status === 404) throw new Error('DALL-E 3 not accessible. Ensure billing is enabled at platform.openai.com/billing.');
-            if (genRes.status === 429) throw new Error('OpenAI rate limit. Wait a moment and try again.');
-            throw new Error(msg || `Generation failed (${genRes.status})`);
+            console.error('[Generation]', genRes.status, JSON.stringify(genData));
+            const msg = genData.error?.message || genData.message || '';
+            throw new Error(`Image generation failed (${genRes.status}): ${msg || 'OpenRouter may not support DALL-E 3 image generation on your plan.'}`);
         }
 
         const url = genData.data?.[0]?.url;
-        if (!url) throw new Error('No image returned. Please try again.');
+        if (!url) throw new Error(`No image URL in response. Full response: ${JSON.stringify(genData)}`);
 
         return res.status(200).json({ url, description });
 
     } catch (err) {
-        console.error('[PFP Lab]', err.message);
-        return res.status(500).json({ error: err.message || 'Something went wrong. Please try again.' });
+        console.error('[PFP Lab Error]', err.message);
+        return res.status(500).json({ error: err.message });
     }
 };
