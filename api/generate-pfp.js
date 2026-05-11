@@ -78,8 +78,8 @@ module.exports = async function (req, res) {
         const g = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST', headers: H,
             body: JSON.stringify({
-                model:      'black-forest-labs/flux.2-pro',   // image-only model
-                modalities: ['image'],                         // required for image output
+                model:      'google/gemini-3.1-flash-image-preview',
+                modalities: ['image', 'text'],
                 messages:   [{ role: 'user', content: prompt }]
             })
         });
@@ -87,9 +87,12 @@ module.exports = async function (req, res) {
         const gj = await g.json();
         if (!g.ok) throw new Error(gj.error?.message || `Generation failed (${g.status})`);
 
-        // Exact path per OpenRouter docs
-        const url = gj.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (!url) {
+        // Exact path per OpenRouter docs: choices[0].message.images[0].image_url.url
+        // Also fallback to other common paths just in case
+        const message = gj.choices?.[0]?.message;
+        const url = message?.images?.[0]?.image_url?.url || message?.images?.[0]?.url || message?.content;
+        
+        if (!url || !url.startsWith('data:')) {
             console.error('[PFP] Unexpected generation response:', JSON.stringify(gj));
             throw new Error('No image returned. The model may be temporarily unavailable — please try again.');
         }
