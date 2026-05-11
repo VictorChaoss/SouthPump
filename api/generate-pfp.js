@@ -1,13 +1,13 @@
 // api/generate-pfp.js — South Pump PFP Lab Backend
-// Vercel Serverless Function
-// Env vars required:
-//   OPENROUTER_API_KEY  — vision analysis (GPT-4o via OpenRouter)
-//   OPENAI_API_KEY      — image generation (DALL-E 3 via OpenAI)
+// Vercel Serverless Function — maxDuration: 60 (set in vercel.json)
+//
+// Required env var (Vercel Dashboard → Environment Variables):
+//   OPENAI_API_KEY  — must have billing enabled at platform.openai.com/billing
 
-// ── Simple in-memory rate limiter ──────────────────────────────────────────
+// ── In-memory rate limiter (resets on cold start — good enough for serverless) ──
 const rateLimitMap = new Map();
-const RATE_LIMIT   = 5;
-const RATE_WINDOW  = 10 * 60 * 1000; // 10 minutes
+const RATE_LIMIT   = 5;                  // requests per window
+const RATE_WINDOW  = 10 * 60 * 1000;    // 10 minutes
 
 function checkRateLimit(ip) {
     const now   = Date.now();
@@ -23,13 +23,13 @@ function checkRateLimit(ip) {
     return { allowed: true };
 }
 
-// ── Serverless handler ──────────────────────────────────────────────────────
+// ── Handler ─────────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
 
+    // CORS
     res.setHeader('Access-Control-Allow-Origin',  '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
@@ -38,46 +38,44 @@ module.exports = async function handler(req, res) {
     const limit = checkRateLimit(ip);
     if (!limit.allowed) {
         return res.status(429).json({
-            error: `Too many requests. Try again in ${limit.retryAfter} seconds.`,
+            error:      `Rate limit reached. Try again in ${limit.retryAfter} seconds.`,
             retryAfter: limit.retryAfter
         });
     }
 
+    // Validate
     const { imageBase64, extraPrompt = '' } = req.body || {};
     if (!imageBase64)
         return res.status(400).json({ error: 'No image provided.' });
     if (imageBase64.length > 7_000_000)
         return res.status(400).json({ error: 'Image too large. Please use a photo under 4MB.' });
 
-    const orKey = process.env.OPENROUTER_API_KEY;
-    const oaKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey)
+        return res.status(500).json({
+            error: 'OPENAI_API_KEY is not set. Go to Vercel → Settings → Environment Variables.'
+        });
 
-    if (!orKey) return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured.' });
-    if (!oaKey) return res.status(500).json({ error: 'OPENAI_API_KEY not configured.' });
+    const authHeader = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
 
     try {
 
-        // ── Step 1: Vision analysis via OpenRouter (GPT-4o) ──────────────────
-        const visionRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        // ── Step 1: Describe the person with GPT-4o Vision ──────────────────
+        const visionRes = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${orKey}`,
-                'Content-Type':  'application/json',
-                'HTTP-Referer':  'https://southpump.fun',
-                'X-Title':       'South Pump PFP Lab'
-            },
+            headers: authHeader,
             body: JSON.stringify({
-                model: 'openai/gpt-4o',
+                model: 'gpt-4o',
                 messages: [{
                     role: 'user',
                     content: [
                         {
                             type:      'image_url',
-                            image_url: { url: `data:image/jpeg;base64,${imageBase64}` }
+                            image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: 'low' }
                         },
                         {
                             type: 'text',
-                            text: `Describe this person's physical appearance so an artist can recreate them as a South Park cartoon character. Include: face shape, hair color and style, skin tone, body build, notable facial features, and the exact clothing and accessories visible. Be precise and concise. Maximum 80 words. Do not include any real names.`
+                            text: `Describe this person's physical appearance for a South Park cartoon artist. Include: hair color and style, face shape, skin tone, body build, notable features, exact clothing and accessories. Concise, max 80 words, no names.`
                         }
                     ]
                 }],
@@ -85,37 +83,34 @@ module.exports = async function handler(req, res) {
             })
         });
 
+        const visionData  = await visionRes.json();
         if (!visionRes.ok) {
-            const err = await visionRes.json().catch(() => ({}));
-            throw new Error(err.error?.message || `Vision analysis failed (${visionRes.status})`);
+            const msg = visionData.error?.message || '';
+            if (visionRes.status === 401) throw new Error('Invalid OpenAI API key. Check OPENAI_API_KEY in Vercel.');
+            if (visionRes.status === 429) throw new Error('OpenAI rate limit hit. Wait a moment and try again.');
+            throw new Error(msg || `Vision step failed (${visionRes.status})`);
         }
 
-        const visionData  = await visionRes.json();
-        const description = visionData.choices?.[0]?.message?.content || '';
-        if (!description)
-            throw new Error('Could not analyse the image. Please try a clearer photo.');
+        const description = visionData.choices?.[0]?.message?.content?.trim();
+        if (!description) throw new Error('Could not read the image. Try a clearer, front-facing photo.');
 
-        // ── Step 2: Generate South Park PFP via OpenAI DALL-E 3 ──────────────
-        const safeExtra   = extraPrompt.slice(0, 200);
-        const dallePrompt = [
+        // ── Step 2: Generate South Park character with DALL-E 3 ─────────────
+        const safeExtra = (extraPrompt || '').slice(0, 200);
+        const prompt    = [
             'South Park cartoon style character portrait.',
-            'Construction paper cutout animation aesthetic.',
-            'Flat 2D art, thick black outlines, vibrant primary colors, simple shapes.',
-            `The character: ${description}`,
-            safeExtra ? `Additional detail: ${safeExtra}.` : '',
-            'Centered square portrait, clean white background, no text, no watermarks.',
-            'Authentic South Park art style.'
+            'Construction paper cutout art style.',
+            'Flat 2D, thick black outlines, vibrant primary colors, simple shapes.',
+            `Character: ${description}`,
+            safeExtra || '',
+            'White background, centered square portrait, no text, no watermarks.'
         ].filter(Boolean).join(' ');
 
-        const imageRes = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${oaKey}`,
-                'Content-Type':  'application/json'
-            },
+        const genRes  = await fetch('https://api.openai.com/v1/images/generations', {
+            method:  'POST',
+            headers: authHeader,
             body: JSON.stringify({
                 model:           'dall-e-3',
-                prompt:          dallePrompt,
+                prompt,
                 n:               1,
                 size:            '1024x1024',
                 quality:         'standard',
@@ -123,25 +118,23 @@ module.exports = async function handler(req, res) {
             })
         });
 
-        const imageData = await imageRes.json();
-
-        if (!imageRes.ok) {
-            const msg = imageData.error?.message || '';
-            // Give a clear actionable error for common cases
-            if (imageRes.status === 401) throw new Error('OpenAI API key is invalid. Check your OPENAI_API_KEY in Vercel.');
-            if (imageRes.status === 403) throw new Error('OpenAI account needs billing enabled at platform.openai.com/billing.');
-            if (imageRes.status === 404) throw new Error('DALL-E 3 not accessible — ensure your OpenAI account has billing enabled and the API key has "Images" permission.');
-            if (imageRes.status === 429) throw new Error('OpenAI rate limit hit. Try again in a moment.');
-            throw new Error(msg || `Image generation failed (${imageRes.status})`);
+        const genData = await genRes.json();
+        if (!genRes.ok) {
+            const msg = genData.error?.message || '';
+            if (genRes.status === 401) throw new Error('Invalid OpenAI API key.');
+            if (genRes.status === 403) throw new Error('OpenAI billing not enabled. Visit platform.openai.com/billing to add credits.');
+            if (genRes.status === 404) throw new Error('DALL-E 3 not accessible. Ensure billing is enabled at platform.openai.com/billing.');
+            if (genRes.status === 429) throw new Error('OpenAI rate limit. Wait a moment and try again.');
+            throw new Error(msg || `Generation failed (${genRes.status})`);
         }
 
-        const url = imageData.data?.[0]?.url;
+        const url = genData.data?.[0]?.url;
         if (!url) throw new Error('No image returned. Please try again.');
 
         return res.status(200).json({ url, description });
 
     } catch (err) {
         console.error('[PFP Lab]', err.message);
-        return res.status(500).json({ error: err.message || 'Generation failed. Please try again.' });
+        return res.status(500).json({ error: err.message || 'Something went wrong. Please try again.' });
     }
 };
