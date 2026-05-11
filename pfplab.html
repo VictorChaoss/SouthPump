@@ -414,13 +414,12 @@
         let cooldownTimer  = null;
         const COOLDOWN_MS  = 60_000; // 60s client-side cooldown
 
-        // ── Loading messages ─────────────────────────────────────────────
         const loadingMessages = [
-            'Analysing your face structure...',
+            'Scanning your face structure...',
             'Converting to construction paper...',
-            'Adding that signature South Park look...',
-            'Almost done, degen...',
-            'Just touching up the details...'
+            'Generating your South Park look...',
+            'Adding signature style details...',
+            'Almost ready, degen...'
         ];
         let msgInterval = null;
 
@@ -565,8 +564,20 @@
                 loadingPanel.style.display = 'none';
 
                 resultImg.src = data.url;
-                downloadBtn.href     = data.url;
-                downloadBtn.download = 'south-pump-pfp.png';
+
+                // Handle both direct URLs and base64 data URLs for download
+                if (data.url && data.url.startsWith('data:')) {
+                    const blob    = dataURLtoBlob(data.url);
+                    const blobUrl = URL.createObjectURL(blob);
+                    downloadBtn.href     = blobUrl;
+                    downloadBtn.download = 'south-pump-pfp.png';
+                    downloadBtn.addEventListener('click', () => {
+                        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+                    }, { once: true });
+                } else {
+                    downloadBtn.href     = data.url;
+                    downloadBtn.download = 'south-pump-pfp.png';
+                }
 
                 const tweetText = encodeURIComponent('Just minted my South Pump PFP 🚀 $SOUTHPUMP @SouthPumpFun\n\nsouthpump.fun/pfplab.html');
                 tweetBtn.href = `https://twitter.com/intent/tweet?text=${tweetText}`;
@@ -624,6 +635,16 @@
             e.stopPropagation();
             fileInput.click();
         };
+
+        // ── Helpers ────────────────────────────────────────────────────────
+        function dataURLtoBlob(dataURL) {
+            const [header, b64] = dataURL.split(',');
+            const mime   = header.match(/:(.*?);/)[1];
+            const binary = atob(b64);
+            const arr    = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+            return new Blob([arr], { type: mime });
+        }
 
     })();
     </script>
