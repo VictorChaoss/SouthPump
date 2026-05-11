@@ -1,137 +1,100 @@
-// api/generate-pfp.js — South Pump PFP Lab Backend
-// Vercel Serverless Function — maxDuration: 60 (set in vercel.json)
-//
-// Required env var: OPENROUTER_API_KEY
-//
-// Pipeline:
-//   Step 1 — GPT-4o vision    → describes the person
-//   Step 2 — FLUX 1.1 Pro     → generates South Park portrait
-//   Both via OpenRouter's /v1/chat/completions (correct endpoint for image gen)
+// api/generate-pfp.js
+// South Pump PFP Lab — Vercel Serverless Function
+// maxDuration: 60 set in vercel.json
+// Requires: OPENROUTER_API_KEY in Vercel environment variables
 
-// ── In-memory rate limiter ───────────────────────────────────────────────────
-const rateLimitMap = new Map();
-const RATE_LIMIT   = 10;                 // requests per window per IP
-const RATE_WINDOW  = 10 * 60 * 1000;    // 10 minutes
+const RATE_LIMIT  = 10;
+const RATE_WINDOW = 10 * 60 * 1000; // 10 min
+const rateMap     = new Map();
 
-function checkRateLimit(ip) {
-    const now   = Date.now();
-    const entry = rateLimitMap.get(ip);
-    if (!entry || now > entry.resetAt) {
-        rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
-        return { allowed: true };
-    }
-    if (entry.count >= RATE_LIMIT) {
-        return { allowed: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) };
-    }
-    entry.count++;
-    return { allowed: true };
+function checkRate(ip) {
+    const now = Date.now();
+    const rec = rateMap.get(ip);
+    if (!rec || now > rec.reset) { rateMap.set(ip, { count: 1, reset: now + RATE_WINDOW }); return true; }
+    if (rec.count >= RATE_LIMIT) return false;
+    rec.count++;
+    return true;
 }
 
-// ── Handler ──────────────────────────────────────────────────────────────────
-module.exports = async function handler(req, res) {
-
-    res.setHeader('Access-Control-Allow-Origin',  '*');
+module.exports = async function (req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
-    // Rate limit
-    const ip    = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
-    const limit = checkRateLimit(ip);
-    if (!limit.allowed) {
-        return res.status(429).json({
-            error:      `Rate limit reached. Try again in ${limit.retryAfter} seconds.`,
-            retryAfter: limit.retryAfter
-        });
-    }
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+    if (!checkRate(ip)) return res.status(429).json({ error: 'Rate limit reached. Try again in a few minutes.' });
 
     const { imageBase64, extraPrompt = '' } = req.body || {};
     if (!imageBase64) return res.status(400).json({ error: 'No image provided.' });
-    if (imageBase64.length > 7_000_000) return res.status(400).json({ error: 'Image too large (max ~4MB).' });
+    if (imageBase64.length > 7_000_000) return res.status(400).json({ error: 'Image too large. Use a photo under 4MB.' });
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: 'OPENROUTER_API_KEY not set in Vercel environment variables.' });
+    const key = process.env.OPENROUTER_API_KEY;
+    if (!key) return res.status(500).json({ error: 'OPENROUTER_API_KEY not set in Vercel environment variables.' });
 
-    const headers = {
-        'Authorization': `Bearer ${apiKey}`,
+    const H = {
+        'Authorization': `Bearer ${key}`,
         'Content-Type':  'application/json',
         'HTTP-Referer':  'https://southpump.fun',
         'X-Title':       'South Pump PFP Lab'
     };
 
     try {
-
-        // ── Step 1: Describe person with GPT-4o Vision ───────────────────────
-        const visionRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method:  'POST',
-            headers,
+        // ── STEP 1: Describe the person (GPT-4o vision via OpenRouter) ────────
+        const v = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST', headers: H,
             body: JSON.stringify({
                 model: 'openai/gpt-4o',
+                max_tokens: 200,
                 messages: [{
                     role: 'user',
                     content: [
-                        {
-                            type:      'image_url',
-                            image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: 'low' }
-                        },
-                        {
-                            type: 'text',
-                            text: 'Describe this person\'s physical appearance so an artist can draw them as a South Park cartoon. Include: hair color and style, face shape, skin tone, body type, notable facial features, and exact clothing + accessories. Max 80 words. No real names.'
-                        }
+                        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: 'low' } },
+                        { type: 'text', text: 'Describe this person for a South Park cartoon artist. Include: hair colour/style, face shape, skin tone, build, notable features, clothing and accessories. Max 80 words. No names.' }
                     ]
-                }],
-                max_tokens: 160
+                }]
             })
         });
 
-        const visionData = await visionRes.json();
-        if (!visionRes.ok) {
-            console.error('[Vision error]', visionRes.status, JSON.stringify(visionData));
-            throw new Error(visionData.error?.message || `Vision step failed (${visionRes.status})`);
-        }
+        const vj = await v.json();
+        if (!v.ok) throw new Error(vj.error?.message || `Vision failed (${v.status})`);
+        const description = vj.choices?.[0]?.message?.content?.trim();
+        if (!description) throw new Error('Could not read the image. Try a clearer front-facing photo.');
 
-        const description = visionData.choices?.[0]?.message?.content?.trim();
-        if (!description) throw new Error('Could not read the image. Try a clearer, front-facing photo.');
-
-        // ── Step 2: Generate South Park portrait with FLUX 1.1 Pro ──────────
-        // OpenRouter image gen uses /v1/chat/completions + modalities:["image"]
-        const safeExtra = (extraPrompt || '').slice(0, 200);
-        const prompt    = [
+        // ── STEP 2: Generate South Park portrait (FLUX via OpenRouter) ────────
+        // Per OpenRouter docs: /v1/chat/completions + modalities:["image"]
+        // Response: choices[0].message.images[0].image_url.url
+        const extra  = (extraPrompt || '').slice(0, 200);
+        const prompt = [
             'South Park cartoon character portrait.',
             'Flat 2D construction paper cutout art style.',
-            'Thick black outlines, vibrant primary colors, simple shapes, white background.',
+            'Thick black outlines, bold primary colours, simple shapes.',
             `Character: ${description}`,
-            safeExtra || '',
-            'Centered square portrait. Authentic South Park animation aesthetic. No text.'
+            extra || '',
+            'White background. Centred square portrait. No text or watermarks.'
         ].filter(Boolean).join(' ');
 
-        const genRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method:  'POST',
-            headers,
+        const g = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST', headers: H,
             body: JSON.stringify({
-                model:      'black-forest-labs/flux-1.1-pro',
-                modalities: ['image'],
+                model:      'black-forest-labs/flux.2-pro',   // image-only model
+                modalities: ['image'],                         // required for image output
                 messages:   [{ role: 'user', content: prompt }]
             })
         });
 
-        const genData = await genRes.json();
-        if (!genRes.ok) {
-            console.error('[Generation error]', genRes.status, JSON.stringify(genData));
-            throw new Error(genData.error?.message || `Image generation failed (${genRes.status})`);
+        const gj = await g.json();
+        if (!g.ok) throw new Error(gj.error?.message || `Generation failed (${g.status})`);
+
+        // Exact path per OpenRouter docs
+        const url = gj.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (!url) {
+            console.error('[PFP] Unexpected generation response:', JSON.stringify(gj));
+            throw new Error('No image returned. The model may be temporarily unavailable — please try again.');
         }
 
-        // OpenRouter returns images in choices[0].message.images[] as data URLs
-        const imageDataUrl = genData.choices?.[0]?.message?.images?.[0]
-                          || genData.choices?.[0]?.message?.content;
-
-        if (!imageDataUrl) {
-            console.error('[No image] Full response:', JSON.stringify(genData));
-            throw new Error('No image returned. Full response logged.');
-        }
-
-        return res.status(200).json({ url: imageDataUrl, description });
+        return res.status(200).json({ url, description });
 
     } catch (err) {
         console.error('[PFP Lab]', err.message);
