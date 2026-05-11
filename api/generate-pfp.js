@@ -58,7 +58,10 @@ module.exports = async function (req, res) {
         });
 
         const vj = await v.json();
-        if (!v.ok) throw new Error(vj.error?.message || `Vision failed (${v.status})`);
+        if (!v.ok) {
+            console.error('[Vision Error]', JSON.stringify(vj));
+            throw new Error(`[VISION_API_ERROR] ${v.status} - ${JSON.stringify(vj)}`);
+        }
         const description = vj.choices?.[0]?.message?.content?.trim();
         if (!description) throw new Error('Could not read the image. Try a clearer front-facing photo.');
 
@@ -85,7 +88,10 @@ module.exports = async function (req, res) {
         });
 
         const gj = await g.json();
-        if (!g.ok) throw new Error(gj.error?.message || `Generation failed (${g.status})`);
+        if (!g.ok) {
+            console.error('[Generation Error]', JSON.stringify(gj));
+            throw new Error(`[GEN_API_ERROR] ${g.status} - ${JSON.stringify(gj)}`);
+        }
 
         // Exact path per OpenRouter docs: choices[0].message.images[0].image_url.url
         // Also fallback to other common paths just in case
