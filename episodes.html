@@ -71,6 +71,33 @@
             </div>
         </div>
 
+        <!-- Day in the Life section -->
+        <div class="streaming-category">
+            <h2 class="category-title"><span class="cat-accent">🎥</span> Day in the Life of...</h2>
+            <div class="carousel">
+                <div class="episode-card" onclick="playVideo('ditl_clav.mp4')" style="cursor:pointer;">
+                    <img src="Characters/Clavicular.jpeg" alt="Clavicular">
+                    <div class="card-overlay">
+                        <div class="card-play">&#9654;</div>
+                        <div class="card-meta">
+                            <h4>Clavicular</h4>
+                            <div class="card-tags"><span>Day in the Life</span><span>Short</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="episode-card" onclick="playVideo('ditl_fatduval.mp4')" style="cursor:pointer;">
+                    <img src="Characters/Fat Duval.jpeg" alt="Fat Duval">
+                    <div class="card-overlay">
+                        <div class="card-play">&#9654;</div>
+                        <div class="card-meta">
+                            <h4>Fat Duval</h4>
+                            <div class="card-tags"><span>Day in the Life</span><span>Short</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </section>
 
     <footer class="hub-footer">
@@ -92,9 +119,13 @@
 
     <script src="hub.js"></script>
     <script>
-        function openVideoModal() {
+        function openVideoModal() { playVideo('hantavirus_ep1.mp4'); }
+        function playVideo(src) {
             const modal = document.getElementById('video-modal');
             const video = document.getElementById('episode-video');
+            const source = video.querySelector('source');
+            source.src = src;
+            video.load();
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             video.play();
