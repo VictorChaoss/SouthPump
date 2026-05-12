@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ).join('')}
             </nav>
             <div class="mobile-nav-footer">
-                <a href="https://twitter.com" target="_blank">𝕏 Twitter</a>
+                <a href="https://x.com/southpumponsol" target="_blank">𝕏 Twitter</a>
                 <a href="https://t.me" target="_blank">✈ Telegram</a>
             </div>`;
         document.body.appendChild(overlay);
