@@ -54,7 +54,7 @@
             </div>
             <p class="hero-desc">The SS Petri-Dish sets sail on a luxury cruise. What could possibly go wrong? A new South Pump animated original.</p>
             <div class="hero-buttons">
-                <button class="btn-play" onclick="window.location.href='https://pump.fun'">&#9654;&nbsp; PLAY</button>
+                <button class="btn-play" onclick="openVideoModal()">&#9654;&nbsp; PLAY</button>
                 <button class="btn-info">&#9432;&nbsp; MORE INFO</button>
             </div>
         </div>
@@ -67,7 +67,7 @@
             <div class="episode-card episode-card--numbered">
                 <span class="rank-number">1</span>
                 <img src="ep_hantavirus.png" alt="Hantavirus Episode 1">
-                <div class="card-overlay">
+                <div class="card-overlay" onclick="openVideoModal()" style="cursor:pointer;">
                     <div class="card-play">&#9654;</div>
                     <div class="card-meta">
                         <h4>Hantavirus Episode 1</h4>
@@ -93,6 +93,36 @@
         <p class="footer-disclaimer">$SOUTHPUMP is a parody memecoin for entertainment purposes only. Not affiliated with South Park or Comedy Central.</p>
     </footer>
 
+    <!-- Video Modal -->
+    <div id="video-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;">
+        <button onclick="closeVideoModal()" style="position:absolute;top:1.5rem;right:2rem;background:transparent;border:none;color:#fff;font-size:2.5rem;cursor:pointer;z-index:10000;line-height:1;">&times;</button>
+        <video id="episode-video" controls autoplay style="max-width:92vw;max-height:85vh;border-radius:8px;box-shadow:0 0 60px rgba(0,0,0,0.8);">
+            <source src="hantavirus_ep1.mp4" type="video/mp4">
+        </video>
+        <p style="color:#555;font-size:0.8rem;margin-top:1rem;">Press ESC or click &times; to close</p>
+    </div>
+
     <script src="hub.js"></script>
+    <script>
+        function openVideoModal() {
+            const modal = document.getElementById('video-modal');
+            const video = document.getElementById('episode-video');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            video.play();
+        }
+        function closeVideoModal() {
+            const modal = document.getElementById('video-modal');
+            const video = document.getElementById('episode-video');
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+            video.pause();
+            video.currentTime = 0;
+        }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeVideoModal(); });
+        document.getElementById('video-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeVideoModal();
+        });
+    </script>
 </body>
 </html>
