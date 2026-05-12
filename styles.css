@@ -555,6 +555,7 @@ body.streaming-platform {
     justify-content: flex-end;
     opacity: 0;
     transition: opacity 0.25s;
+    z-index: 2;
 }
 
 .episode-card:hover .card-overlay { opacity: 1; }
