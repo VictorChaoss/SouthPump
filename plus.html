@@ -205,7 +205,6 @@
     <div id="video-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;">
         <button onclick="closeVideoModal()" style="position:absolute;top:1.5rem;right:2rem;background:transparent;border:none;color:#fff;font-size:2.5rem;cursor:pointer;z-index:10000;line-height:1;">&times;</button>
         <video id="episode-video" controls autoplay style="max-width:92vw;max-height:85vh;border-radius:8px;box-shadow:0 0 60px rgba(0,0,0,0.8);">
-            <source src="hantavirus_ep1.mp4" type="video/mp4">
         </video>
         <p style="color:#555;font-size:0.8rem;margin-top:1rem;">Press ESC or click &times; to close</p>
     </div>
@@ -216,8 +215,7 @@
         function playVideo(src) {
             const modal = document.getElementById('video-modal');
             const video = document.getElementById('episode-video');
-            const source = video.querySelector('source');
-            source.src = src;
+            video.src = src;
             video.load();
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
