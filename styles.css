@@ -510,6 +510,8 @@ body.streaming-platform {
     display: flex;
     gap: 0.6rem;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
     padding-bottom: 1rem;
     scroll-snap-type: x mandatory;
 }
@@ -1802,7 +1804,9 @@ body.streaming-platform {
 
     /* Carousels */
     .streaming-category { padding: 1.5rem 4%; }
-    .episode-card { min-width: 160px; }
+    .episode-card { min-width: 180px; height: 110px; }
+    .episode-card--numbered { min-width: 260px; }
+    .rank-number { font-size: 5rem; bottom: -5px; }
     .carousel { gap: 0.8rem; }
     .category-title { font-size: 1.2rem; }
 
