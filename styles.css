@@ -520,6 +520,8 @@ body.streaming-platform {
 
 .episode-card {
     min-width: 260px;
+    width: 260px;
+    max-width: 260px;
     height: 150px;
     position: relative;
     border-radius: 4px;
@@ -590,7 +592,7 @@ body.streaming-platform {
 }
 
 /* Numbered cards */
-.episode-card--numbered { min-width: 300px; }
+.episode-card--numbered { min-width: 300px; width: 300px; max-width: 300px; }
 
 /* Coming Soon cards */
 .episode-card--soon { opacity: 0.75; cursor: default; }
@@ -1804,8 +1806,8 @@ body.streaming-platform {
 
     /* Carousels */
     .streaming-category { padding: 1.5rem 4%; }
-    .episode-card { min-width: 180px; height: 110px; }
-    .episode-card--numbered { min-width: 260px; }
+    .episode-card { min-width: 180px; width: 180px; max-width: 180px; height: 110px; }
+    .episode-card--numbered { min-width: 260px; width: 260px; max-width: 260px; }
     .rank-number { font-size: 5rem; bottom: -5px; }
     .carousel { gap: 0.8rem; }
     .category-title { font-size: 1.2rem; }
